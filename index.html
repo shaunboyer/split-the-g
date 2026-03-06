@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Split the G</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0e0e0e;
+      color: #f0deb4;
+      font-family: Georgia, 'Times New Roman', serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px 16px;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
+      overflow-x: hidden;
+    }
+
+    h1 {
+      font-size: clamp(1.8rem, 5vw, 3rem);
+      color: #c9a84c;
+      letter-spacing: 5px;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+
+    .tagline {
+      font-size: 0.78rem;
+      color: rgba(240, 222, 180, 0.4);
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      margin-bottom: 24px;
+    }
+
+    .game-row {
+      display: flex;
+      align-items: flex-end;
+      gap: 40px;
+      margin-bottom: 18px;
+      overflow: visible;
+    }
+
+    .glass-col {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .glass-wrap {
+      position: relative;
+      width: 172px;
+      height: 336px;
+      flex-shrink: 0;
+      overflow: visible;
+    }
+
+    .glass-wrap svg {
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+    }
+
+    .char-col {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+      width: 260px;
+      flex-shrink: 0;
+    }
+
+    .char-wrap {
+      position: relative;
+      width: 260px;
+      height: 300px;
+    }
+
+    .char-wrap img {
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      max-width: 260px;
+      max-height: 320px;
+      object-fit: contain;
+      opacity: 0;
+      transition: opacity 0.25s ease;
+      pointer-events: none;
+    }
+    .char-wrap img.visible { opacity: 1; }
+
+    #result {
+      min-height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.0rem;
+      letter-spacing: 1.5px;
+      text-align: center;
+      margin-bottom: 14px;
+      padding: 0 8px;
+      max-width: 400px;
+    }
+
+    .win   { color: #ffd700; }
+    .close { color: #8fe08f; }
+    .miss  { color: #e07070; }
+
+    #drinkBtn {
+      background: #c9a84c;
+      color: #0e0e0e;
+      border: none;
+      padding: 15px 50px;
+      font-size: 1.0rem;
+      font-family: Georgia, serif;
+      font-weight: bold;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      cursor: pointer;
+      border-radius: 3px;
+      margin-bottom: 10px;
+      touch-action: none;
+      -webkit-tap-highlight-color: transparent;
+      transition: background 0.15s, transform 0.1s;
+    }
+    #drinkBtn:hover  { background: #d4b55e; }
+    #drinkBtn.active { background: #9a7830; transform: scale(0.97); }
+
+    #resetBtn {
+      background: transparent;
+      color: rgba(240, 222, 180, 0.36);
+      border: 1px solid rgba(240, 222, 180, 0.17);
+      padding: 7px 26px;
+      font-size: 0.75rem;
+      font-family: Georgia, serif;
+      letter-spacing: 1px;
+      cursor: pointer;
+      border-radius: 3px;
+      transition: all 0.2s;
+      margin-bottom: 16px;
+    }
+    #resetBtn:hover { color: #c9a84c; border-color: #c9a84c; }
+
+    .score {
+      font-size: 0.7rem;
+      color: rgba(240, 222, 180, 0.28);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .score span { color: rgba(201, 168, 76, 0.65); }
+
+    .hint {
+      font-size: 0.68rem;
+      color: rgba(240, 222, 180, 0.25);
+      letter-spacing: 1px;
+      text-align: center;
+      line-height: 2;
+    }
+
+    @keyframes bounce {
+      0%   { transform: scale(1); }
+      25%  { transform: scale(1.05) rotate(-1deg); }
+      50%  { transform: scale(1.03) rotate(1deg); }
+      75%  { transform: scale(1.05) rotate(-0.5deg); }
+      100% { transform: scale(1); }
+    }
+    .bounce { animation: bounce 0.45s ease 2; }
+
+    @keyframes glow { 0%,100%{opacity:1} 50%{opacity:0.55} }
+    .glow { animation: glow 0.9s ease infinite; }
+
+    @media (max-width: 520px) {
+      .game-row { flex-direction: column; align-items: center; gap: 16px; }
+      .char-col { order: -1; }
+      .char-wrap { width: 180px; height: 200px; }
+      .char-wrap img { max-width: 180px; max-height: 220px; }
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Split the G</h1>
+  <p class="tagline">HAPPY BIRTHDAY KEV!</p>
+
+  <div class="game-row">
+
+    <!-- Glass -->
+    <div class="glass-col">
+      <div class="glass-wrap" id="glassWrap">
+        <!--
+          SVG rendering layers (bottom to top):
+          1. glassBg   — dark fill inside glass walls, TILTS with glass
+          2. liquidPoly — liquid body, bottom follows glass, top is HORIZONTAL
+          3. foamPoly   — foam layer, also horizontal top surface
+          4. tgtLine    — horizontal guide revealed after guess
+          5. glassOutline — outline, G text, rim — TILTS with glass
+        -->
+        <svg id="gameGlass" viewBox="0 0 200 360" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <filter id="foamFx" x="0%" y="0%" width="100%" height="100%">
+              <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" seed="2" result="n"/>
+              <feDisplacementMap in="SourceGraphic" in2="n" scale="4" xChannelSelector="R" yChannelSelector="G"/>
+            </filter>
+          </defs>
+
+          <!-- LAYER 1: dark glass interior (tilts) -->
+          <g id="glassBg">
+            <polygon points="18,12 182,12 163,348 37,348" fill="#080200"/>
+          </g>
+
+          <!-- LAYER 2: liquid body — polygon computed each frame.
+               Bottom corners track the tilted glass base.
+               Top edge is always a perfectly horizontal line. -->
+          <polygon id="liquidPoly" points="" fill="#140500"/>
+
+          <!-- LAYER 3: foam — same idea, just a band above the liquid surface -->
+          <polygon id="foamPoly"    points="" fill="#c8a97a"/>
+          <polygon id="foamPolyTop" points="" fill="#dfc090" filter="url(#foamFx)" opacity="0.85"/>
+
+          <!-- LAYER 4: target line (horizontal in world space, revealed after guess) -->
+          <line id="tgtLine" x1="20" y1="126" x2="180" y2="126"
+                stroke="rgba(201,168,76,0)" stroke-width="1.5" stroke-dasharray="5,4"/>
+
+          <!-- LAYER 5: glass outline, G, rim, reflections (tilt with glass) -->
+          <g id="glassOutline">
+            <text x="100" y="143"
+                  text-anchor="middle"
+                  font-family="Georgia, serif"
+                  font-size="36"
+                  font-weight="bold"
+                  fill="rgba(201,168,76,0.82)">G</text>
+
+            <polygon points="18,12 182,12 163,348 37,348"
+                     fill="none"
+                     stroke="rgba(255,255,255,0.22)"
+                     stroke-width="2.5"
+                     stroke-linejoin="round"/>
+
+            <line x1="18" y1="12" x2="182" y2="12"
+                  stroke="rgba(255,255,255,0.5)" stroke-width="2.5"/>
+
+            <polygon points="22,18 40,18 33,340 24,340" fill="rgba(255,255,255,0.032)"/>
+            <polygon points="24,18 32,18 28,160 24,160" fill="rgba(255,255,255,0.045)"/>
+
+            <rect x="37" y="348" width="126" height="8" rx="2" fill="rgba(255,255,255,0.1)"/>
+          </g>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Character -->
+    <div class="char-col">
+      <div class="char-wrap" id="charWrap">
+        <img id="img-normal"   src="images/normal.png"   alt="Ready" />
+        <img id="img-drinking" src="images/drinking.png" alt="Drinking" />
+        <img id="img-split"    src="images/split.png"    alt="Legend!" />
+        <img id="img-loss"     src="images/loss.png"     alt="Missed" />
+        <img id="img-finished" src="images/finished.png" alt="Finished" />
+      </div>
+    </div>
+
+  </div>
+
+  <div id="result"></div>
+  <button id="drinkBtn">Hold to Drink</button>
+  <button id="resetBtn">Pour Another</button>
+  <p class="score">Splits: <span id="wins">0</span> / Attempts: <span id="attempts">0</span></p>
+  <p class="hint">Hold the button to drink.<br>Release exactly when the liquid splits the G.</p>
+
+  <script>
+    // ── Constants ─────────────────────────────────────────────────
+    const GLASS_TOP    = 12;
+    const GLASS_BOTTOM = 348;
+    const GLASS_H      = GLASS_BOTTOM - GLASS_TOP;  // 336
+    const FOAM_H       = 20;
+
+    const TARGET_FILL  = 67;    // % remaining at perfect split
+    const WIN_TOL      = 4;
+    const CLOSE_TOL    = 9;
+    const FINISHED_PCT = 10;
+    const DRAIN_RATE   = 12.5;  // % per second  (~8 sec full glass)
+
+    const MAX_TILT     = 25;    // degrees
+    const TILT_SPEED   = 30;    // degrees / second
+
+    // Pivot = base centre of glass in SVG coordinates
+    const PX = 100, PY = 348;
+
+    // Glass wall endpoints in (unrotated) SVG space:
+    //   left wall:  L_BOT → L_TOP
+    //   right wall: R_BOT → R_TOP
+    const L_BOT = [37,  348], L_TOP = [18,  12];
+    const R_BOT = [163, 348], R_TOP = [182, 12];
+
+    // ── State ─────────────────────────────────────────────────────
+    let fill      = 100;
+    let drinking  = false;
+    let active    = true;
+    let tiltAngle = 0;
+    let raf       = null;
+    let lastT     = 0;
+    let winsCount = 0;
+    let attCount  = 0;
+
+    // ── Elements ──────────────────────────────────────────────────
+    const liquidPoly   = document.getElementById('liquidPoly');
+    const foamPoly     = document.getElementById('foamPoly');
+    const foamPolyTop  = document.getElementById('foamPolyTop');
+    const tgtLine      = document.getElementById('tgtLine');
+    const result       = document.getElementById('result');
+    const drinkBtn     = document.getElementById('drinkBtn');
+    const glassWrap    = document.getElementById('glassWrap');
+    const winsEl       = document.getElementById('wins');
+    const attEl        = document.getElementById('attempts');
+    const glassBg      = document.getElementById('glassBg');
+    const glassOutline = document.getElementById('glassOutline');
+
+    const charImgs = {
+      normal:   document.getElementById('img-normal'),
+      drinking: document.getElementById('img-drinking'),
+      split:    document.getElementById('img-split'),
+      loss:     document.getElementById('img-loss'),
+      finished: document.getElementById('img-finished'),
+    };
+    let currentChar = null;
+
+    // ── Helpers ───────────────────────────────────────────────────
+    function showChar(state) {
+      if (currentChar === state) return;
+      Object.entries(charImgs).forEach(([k, el]) => el.classList.toggle('visible', k === state));
+      currentChar = state;
+    }
+
+    // Rotate point (x,y) around (cx,cy) by deg degrees
+    function rotPt(x, y, cx, cy, deg) {
+      const r = deg * Math.PI / 180;
+      const dx = x - cx, dy = y - cy;
+      return [
+        dx * Math.cos(r) - dy * Math.sin(r) + cx,
+        dx * Math.sin(r) + dy * Math.cos(r) + cy
+      ];
+    }
+
+    // Find where the line segment p1→p2 has y === targetY.
+    // Returns [x, targetY] or null if out of segment range.
+    function intersectY(p1, p2, targetY) {
+      const dy = p2[1] - p1[1];
+      if (Math.abs(dy) < 0.001) return null;
+      const t = (targetY - p1[1]) / dy;
+      if (t < -0.01 || t > 1.01) return null;          // outside segment
+      return [p1[0] + t * (p2[0] - p1[0]), targetY];
+    }
+
+    // Like intersectY but clamps t to [0,1] so the result always
+    // stays within the wall segment — prevents null when glass is
+    // very full or very empty while tilted.
+    function intersectYClamped(p1, p2, targetY) {
+      const dy = p2[1] - p1[1];
+      if (Math.abs(dy) < 0.001) return [p1[0], p1[1]];
+      const t = Math.max(0, Math.min(1, (targetY - p1[1]) / dy));
+      return [p1[0] + t * (p2[0] - p1[0]), p1[1] + t * (p2[1] - p1[1])];
+    }
+
+    function fmt(pts) {
+      return pts.map(p => `${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ');
+    }
+
+    // ── Visual update ─────────────────────────────────────────────
+    function render() {
+      // 1. Rotate glass wall endpoints into world space
+      const lb = rotPt(...L_BOT, PX, PY, tiltAngle);
+      const lt = rotPt(...L_TOP, PX, PY, tiltAngle);
+      const rb = rotPt(...R_BOT, PX, PY, tiltAngle);
+      const rt = rotPt(...R_TOP, PX, PY, tiltAngle);
+
+      // 2. Liquid surface Y (horizontal line in world space)
+      const surfY = GLASS_TOP + (1 - fill / 100) * GLASS_H;
+
+      // 3. Intersect the horizontal surface with the rotated glass walls.
+      // Use clamped version so we always get a valid point — prevents the
+      // polygon from disappearing when the glass is very full (surface above
+      // the tilted rim) or very empty (surface below the tilted base).
+      const ls = intersectYClamped(lb, lt, surfY);
+      const rs = intersectYClamped(rb, rt, surfY);
+
+      // Liquid polygon: top edge is the surface line (may be slightly
+      // non-horizontal in overflow/underflow edge cases, but always visible).
+      if (fill > 0.5) {
+        liquidPoly.setAttribute('points', fmt([ls, rs, rb, lb]));
+        liquidPoly.style.display = '';
+      } else {
+        liquidPoly.style.display = 'none';
+      }
+
+      // 4. Foam band sits on top of the liquid surface
+      if (fill > 3) {
+        const foamY = surfY - FOAM_H;
+        const lf = intersectYClamped(lb, lt, foamY);
+        const rf = intersectYClamped(rb, rt, foamY);
+        // foam polygon: same trapezoid from liquid surface up FOAM_H pixels
+        const foamPts = fmt([lf, rf, rs, ls]);
+        foamPoly.setAttribute('points', foamPts);
+        foamPolyTop.setAttribute('points', foamPts);
+        foamPoly.style.display = '';
+        foamPolyTop.style.display = '';
+      } else {
+        foamPoly.style.display = 'none';
+        foamPolyTop.style.display = 'none';
+      }
+
+      // 5. Tilt the glass outline + background groups
+      const svgT = `rotate(${tiltAngle}, ${PX}, ${PY})`;
+      glassBg.setAttribute('transform', svgT);
+      glassOutline.setAttribute('transform', svgT);
+    }
+
+    // ── Unified animation loop (drain + tilt) ─────────────────────
+    function shouldLoop() {
+      const target = drinking ? MAX_TILT : 0;
+      return (drinking && active) || Math.abs(tiltAngle - target) > 0.05;
+    }
+
+    function mainLoop(t) {
+      const dt = Math.min((t - lastT) / 1000, 0.05);
+      lastT = t;
+
+      // Drain
+      if (drinking && active) {
+        fill = Math.max(0, fill - DRAIN_RATE * dt);
+        if (fill <= 0) {
+          drinking = false;
+          drinkBtn.classList.remove('active');
+          active = false;
+          evaluate();
+        }
+      }
+
+      // Tilt toward target angle
+      const tiltTarget = drinking ? MAX_TILT : 0;
+      if (Math.abs(tiltAngle - tiltTarget) > 0.05) {
+        const dir = tiltTarget > tiltAngle ? 1 : -1;
+        tiltAngle += dir * TILT_SPEED * dt;
+        if (dir > 0) tiltAngle = Math.min(tiltTarget, tiltAngle);
+        else         tiltAngle = Math.max(tiltTarget, tiltAngle);
+      } else {
+        tiltAngle = tiltTarget;
+      }
+
+      render();
+      raf = shouldLoop() ? requestAnimationFrame(mainLoop) : null;
+    }
+
+    function startLoop() {
+      if (!raf) { lastT = performance.now(); raf = requestAnimationFrame(mainLoop); }
+    }
+
+    // ── Game events ───────────────────────────────────────────────
+    function onStart(e) {
+      e.preventDefault();
+      if (!active) return;
+      drinking = true;
+      drinkBtn.classList.add('active');
+      showChar('drinking');
+      startLoop();
+    }
+
+    function onStop(e) {
+      if (e) e.preventDefault();
+      if (!drinking) return;
+      drinking = false;
+      drinkBtn.classList.remove('active');
+      if (!active) return;
+      active = false;
+      evaluate();
+      startLoop();   // keep looping so the glass tilts smoothly back
+    }
+
+    function evaluate() {
+      attCount++;
+      attEl.textContent = attCount;
+      tgtLine.style.stroke = 'rgba(201,168,76,0.45)';
+
+      const diff = Math.abs(fill - TARGET_FILL);
+      let msg, cls, charState;
+
+      if (fill <= FINISHED_PCT) {
+        msg = "🥴 You drank the whole thing! Slow down!";
+        cls = 'miss'; charState = 'finished';
+      } else if (diff <= WIN_TOL) {
+        msg = '🍺 SPLIT THE G — ABSOLUTE LEGEND!';
+        cls = 'win'; charState = 'split';
+        winsCount++;
+        winsEl.textContent = winsCount;
+        glassWrap.classList.add('bounce');
+        setTimeout(() => glassWrap.classList.remove('bounce'), 950);
+        result.classList.add('glow');
+      } else if (diff <= CLOSE_TOL) {
+        msg = fill > TARGET_FILL
+              ? '📏 So close — drink just a touch more!'
+              : '📏 Nearly! Let go a fraction earlier.';
+        cls = 'close'; charState = 'loss';
+      } else {
+        msg = fill > TARGET_FILL
+              ? "😅 You barely started — drink up!"
+              : "😂 Way too much there — pace yourself!";
+        cls = 'miss'; charState = 'loss';
+      }
+
+      showChar(charState);
+      result.textContent = msg;
+      result.className   = cls;
+    }
+
+    function reset() {
+      fill = 100; drinking = false; active = true; tiltAngle = 0;
+      drinkBtn.classList.remove('active');
+      result.textContent = ''; result.className = '';
+      result.classList.remove('glow');
+      tgtLine.style.stroke = 'rgba(201,168,76,0)';
+      glassWrap.classList.remove('bounce');
+      if (raf) { cancelAnimationFrame(raf); raf = null; }
+      showChar('normal');
+      render();
+    }
+
+    // ── Wire up ───────────────────────────────────────────────────
+    drinkBtn.addEventListener('mousedown',  onStart);
+    drinkBtn.addEventListener('touchstart', onStart, { passive: false });
+    window.addEventListener('mouseup',  onStop);
+    window.addEventListener('touchend', onStop, { passive: false });
+    document.getElementById('resetBtn').addEventListener('click', reset);
+    document.addEventListener('contextmenu', e => e.preventDefault());
+
+    // ── Init ──────────────────────────────────────────────────────
+    showChar('normal');
+    render();
+  </script>
+</body>
+</html>
